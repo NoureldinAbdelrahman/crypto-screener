@@ -1,11 +1,5 @@
+# Private Python alert bot (not published to the public repo)
+bot/
+
 # Secrets
 .env
-
-# Python
-venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-
-# Generated
-driftfund_screener.html

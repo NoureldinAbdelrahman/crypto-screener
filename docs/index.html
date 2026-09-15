@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drift Screener</title>
+<style>
+  :root {
+    --bg: #131722;
+    --panel: #1e222d;
+    --panel-2: #171b26;
+    --border: #2a2e39;
+    --text: #d1d4dc;
+    --muted: #787b86;
+    --accent: #2962ff;
+    --up: #26a69a;
+    --down: #ef5350;
+    --up-bg: rgba(38,166,154,.12);
+    --down-bg: rgba(239,83,80,.12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 16px;
+    height: 48px; padding: 0 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; color: #fff; white-space: nowrap; }
+  .logo {
+    width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #2962ff, #5b7cff); color: #fff; font-size: 13px; font-weight: 800;
+  }
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: .3px;
+    padding: 3px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted);
+  }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .status.live { color: var(--up); border-color: rgba(38,166,154,.4); }
+  .status.live .dot { background: var(--up); animation: pulse 2s infinite; }
+  .status.connecting { color: #f0b90b; border-color: rgba(240,185,11,.4); }
+  .status.connecting .dot { background: #f0b90b; }
+  .status.offline { color: var(--down); border-color: rgba(239,83,80,.4); }
+  .status.offline .dot { background: var(--down); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  .search { position: relative; margin-left: 8px; }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .5; }
+  .search input {
+    width: 260px; max-width: 40vw; height: 32px;
+    padding: 0 12px 0 32px; border-radius: 6px;
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-size: 13px; outline: none;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .search input::placeholder { color: var(--muted); }
+  .spacer { flex: 1; }
+  .updated { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .updated b { color: var(--text); font-weight: 500; }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    position: sticky; top: 48px; z-index: 35;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 8px 16px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+  }
+  .tfgroup { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
+  .tfbtn {
+    border: 0; background: transparent; color: var(--muted);
+    font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 5px; cursor: pointer;
+  }
+  .tfbtn:hover { color: var(--text); }
+  .tfbtn.active { background: var(--accent); color: #fff; }
+
+  .filters { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
+  .fbtn { border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 5px; cursor: pointer; }
+  .fbtn:hover { color: var(--text); }
+  .fbtn.active { background: #2a2e39; color: #fff; }
+  .fbtn.gain.active { background: var(--up-bg); color: var(--up); }
+  .fbtn.lose.active { background: var(--down-bg); color: var(--down); }
+
+  select {
+    height: 30px; border-radius: 7px; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px; padding: 0 8px; outline: none; cursor: pointer;
+  }
+
+  /* ---------- Table ---------- */
+  .wrap { padding: 0; }
+  table { width: 100%; min-width: 620px; border-collapse: collapse; }
+  thead th {
+    position: sticky; top: 89px; z-index: 30;
+    background: var(--panel-2); color: var(--muted);
+    font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase;
+    text-align: right; padding: 9px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; white-space: nowrap; user-select: none;
+  }
+  thead th:first-child { text-align: left; }
+  thead th:hover { color: var(--text); }
+  thead th .arr { color: var(--accent); margin-left: 4px; font-size: 9px; }
+  thead th .tflabel { color: var(--accent); }
+
+  tbody td {
+    padding: 8px 16px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid rgba(42,46,57,.5);
+    font-variant-numeric: tabular-nums;
+  }
+  tbody td:first-child { text-align: left; }
+  tbody tr { cursor: default; }
+  tbody tr:hover td { background: var(--panel); }
+
+  .sym { display: flex; align-items: center; gap: 9px; }
+  .ico { width: 20px; height: 20px; border-radius: 50%; background: var(--panel); flex: none; }
+  .sym .s { font-weight: 600; color: #fff; }
+  .sym .n { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .src { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-left: 2px; flex: none; }
+  .src.binance { background: var(--up); }
+  .src.coingecko { background: #f0b90b; }
+
+  .num { color: var(--text); }
+  .dim { color: var(--muted); }
+  .up { color: var(--up); font-weight: 500; }
+  .down { color: var(--down); font-weight: 500; }
+  .chg.big { padding: 2px 6px; border-radius: 4px; }
+  .chg.up.big { background: var(--up-bg); }
+  .chg.down.big { background: var(--down-bg); }
+
+  .empty { text-align: center; color: var(--muted); padding: 48px 0; font-size: 14px; }
+
+  /* ---------- Status bar ---------- */
+  .statusbar {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 8px 16px; color: var(--muted); font-size: 12px;
+    border-top: 1px solid var(--border); background: var(--panel-2);
+  }
+  .statusbar b { color: var(--text); font-weight: 500; }
+  .legend { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .src { margin: 0; }
+
+  @media (max-width: 720px) {
+    .sym .n { display: none; }
+    thead th, tbody td { padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="logo">D</span> Drift Screener</div>
+  <span class="status connecting" id="status"><span class="dot"></span><span id="status-text">LOADING</span></span>
+  <div class="search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="search" type="text" placeholder="Search symbol or name" autocomplete="off">
+  </div>
+  <div class="spacer"></div>
+  <div class="updated">Updated <b id="updated">—</b></div>
+</div>
+
+<div class="toolbar">
+  <div class="tfgroup" id="tfgroup">
+    <button class="tfbtn" data-tf="m1">1M</button>
+    <button class="tfbtn" data-tf="m5">5M</button>
+    <button class="tfbtn" data-tf="m15">15M</button>
+    <button class="tfbtn" data-tf="m30">30M</button>
+    <button class="tfbtn" data-tf="h1">1H</button>
+    <button class="tfbtn" data-tf="h4">4H</button>
+    <button class="tfbtn active" data-tf="h24">24H</button>
+  </div>
+  <div class="filters" id="filters">
+    <button class="fbtn active" data-filter="all">All</button>
+    <button class="fbtn gain" data-filter="gainers">Gainers</button>
+    <button class="fbtn lose" data-filter="losers">Losers</button>
+  </div>
+  <select id="volfilter">
+    <option value="0">Volume: Any</option>
+    <option value="1000000">&gt; $1M</option>
+    <option value="10000000">&gt; $10M</option>
+    <option value="100000000">&gt; $100M</option>
+    <option value="1000000000">&gt; $1B</option>
+  </select>
+</div>
+
+<div class="wrap">
+  <table id="table">
+    <thead>
+      <tr>
+        <th data-col="symbol">Symbol</th>
+        <th data-col="price">Price</th>
+        <th data-col="chg">Chg % <span class="tflabel" id="tflabel">24H</span><span class="arr"></span></th>
+        <th data-col="vol">Vol 24h</th>
+        <th data-col="mcap">Mkt Cap</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">No coins match your filters.</div>
+</div>
+
+<div class="statusbar">
+  <span>Showing <b id="count">0</b> of <b id="total">0</b> Drift Fund coins</span>
+  <span class="legend"><span class="src binance"></span> Binance live</span>
+  <span class="legend"><span class="src coingecko"></span> CoinGecko (1h/24h only)</span>
+</div>
+
+<script>
+// ===================== Symbol maps (generated) =====================
+const BINANCE   = {"0G":"0GUSDT","1INCH":"1INCHUSDT","2Z":"2ZUSDT","AAVE":"AAVEUSDT","ACH":"ACHUSDT","ACT":"ACTUSDT","ADA":"ADAUSDT","AERO":"AEROUSDT","AEVO":"AEVOUSDT","AGLD":"AGLDUSDT","AIXBT":"AIXBTUSDT","ALGO":"ALGOUSDT","ALLO":"ALLOUSDT","ANIME":"ANIMEUSDT","APE":"APEUSDT","API3":"API3USDT","APT":"APTUSDT","ARB":"ARBUSDT","ARKM":"ARKMUSDT","ASTER":"ASTERUSDT","ATOM":"ATOMUSDT","AUCTION":"AUCTIONUSDT","AVAX":"AVAXUSDT","AXS":"AXSUSDT","BABY":"BABYUSDT","BAND":"BANDUSDT","BARD":"BARDUSDT","BAT":"BATUSDT","BCH":"BCHUSDT","BERA":"BERAUSDT","BICO":"BICOUSDT","BIGTIME":"BIGTIMEUSDT","BIO":"BIOUSDT","BLUR":"BLURUSDT","BNB":"BNBUSDT","BOME":"BOMEUSDT","BONK":"BONKUSDT","BTC":"BTCUSDT","CELO":"CELOUSDT","CFX":"CFXUSDT","CHZ":"CHZUSDT","COMP":"COMPUSDT","CRV":"CRVUSDT","DASH":"DASHUSDT","DOGE":"DOGEUSDT","DOT":"DOTUSDT","DYDX":"DYDXUSDT","EDEN":"EDENUSDT","EGLD":"EGLDUSDT","EIGEN":"EIGENUSDT","ENA":"ENAUSDT","ENJ":"ENJUSDT","ENS":"ENSUSDT","ETH":"ETHUSDT","ETHFI":"ETHFIUSDT","FIL":"FILUSDT","FLOKI":"FLOKIUSDT","FLOW":"FLOWUSDT","FOGO":"FOGOUSDT","GALA":"GALAUSDT","GAS":"GASUSDT","GIGGLE":"GIGGLEUSDT","GLM":"GLMUSDT","GMT":"GMTUSDT","GMX":"GMXUSDT","GRT":"GRTUSDT","HBAR":"HBARUSDT","HMSTR":"HMSTRUSDT","HOME":"HOMEUSDT","HUMA":"HUMAUSDT","ICP":"ICPUSDT","IMX":"IMXUSDT","INIT":"INITUSDT","INJ":"INJUSDT","IOST":"IOSTUSDT","IOTA":"IOTAUSDT","JTO":"JTOUSDT","JUP":"JUPUSDT","KAITO":"KAITOUSDT","KAT":"KATUSDT","KITE":"KITEUSDT","KMNO":"KMNOUSDT","KSM":"KSMUSDT","LAYER":"LAYERUSDT","LDO":"LDOUSDT","LINEA":"LINEAUSDT","LINK":"LINKUSDT","LPT":"LPTUSDT","LQTY":"LQTYUSDT","LTC":"LTCUSDT","LUNA":"LUNAUSDT","MAGIC":"MAGICUSDT","MANA":"MANAUSDT","MASK":"MASKUSDT","MEGA":"MEGAUSDT","MEME":"MEMEUSDT","MET":"METUSDT","METIS":"METISUSDT","MINA":"MINAUSDT","MORPHO":"MORPHOUSDT","MOVE":"MOVEUSDT","MUBARAK":"MUBARAKUSDT","NEAR":"NEARUSDT","NEIRO":"NEIROUSDT","NEO":"NEOUSDT","NIGHT":"NIGHTUSDT","NMR":"NMRUSDT","NOT":"NOTUSDT","ONDO":"ONDOUSDT","ONE":"ONEUSDT","ONT":"ONTUSDT","OP":"OPUSDT","OPG":"OPGUSDT","OPN":"OPNUSDT","ORDI":"ORDIUSDT","PARTI":"PARTIUSDT","PENDLE":"PENDLEUSDT","PENGU":"PENGUUSDT","PEOPLE":"PEOPLEUSDT","PEPE":"PEPEUSDT","PLUME":"PLUMEUSDT","PNUT":"PNUTUSDT","POL":"POLUSDT","PROVE":"PROVEUSDT","PUMP":"PUMPUSDT","PYTH":"PYTHUSDT","QNT":"QNTUSDT","QTUM":"QTUMUSDT","RAY":"RAYUSDT","RENDER":"RENDERUSDT","RESOLV":"RESOLVUSDT","ROBO":"ROBOUSDT","RSR":"RSRUSDT","RVN":"RVNUSDT","SAHARA":"SAHARAUSDT","SAND":"SANDUSDT","SAPIEN":"SAPIENUSDT","SEI":"SEIUSDT","SENT":"SENTUSDT","SHIB":"SHIBUSDT","SIGN":"SIGNUSDT","SKY":"SKYUSDT","SNX":"SNXUSDT","SOL":"SOLUSDT","SOPH":"SOPHUSDT","SPK":"SPKUSDT","SSV":"SSVUSDT","STRK":"STRKUSDT","STX":"STXUSDT","SUI":"SUIUSDT","SUSHI":"SUSHIUSDT","SYRUP":"SYRUPUSDT","TAO":"TAOUSDT","THETA":"THETAUSDT","TIA":"TIAUSDT","TRB":"TRBUSDT","TRUMP":"TRUMPUSDT","TRX":"TRXUSDT","TURBO":"TURBOUSDT","UMA":"UMAUSDT","UNI":"UNIUSDT","USDC":"USDCUSDT","VANA":"VANAUSDT","VIRTUAL":"VIRTUALUSDT","WAL":"WALUSDT","WCT":"WCTUSDT","WIF":"WIFUSDT","WLD":"WLDUSDT","WLFI":"WLFIUSDT","WOO":"WOOUSDT","XLM":"XLMUSDT","XRP":"XRPUSDT","XTZ":"XTZUSDT","YFI":"YFIUSDT","YGG":"YGGUSDT","ZEC":"ZECUSDT","ZEN":"ZENUSDT","ZIL":"ZILUSDT","ZK":"ZKUSDT","ZKP":"ZKPUSDT","ZRO":"ZROUSDT","ZRX":"ZRXUSDT"};    // Drift symbol -> Binance pair
+const CG_ONLY   = {"BRETT":"based-brett","CORE":"core-dao","CRO":"crypto-com-chain","FARTCOIN":"fartcoin","GRASS":"grass","HYPE":"hyperliquid","ICX":"icon","LRC":"loopring","MERL":"merlin-chain","MEW":"cat-in-a-dogs-world","MOODENG":"moo-deng","OKB":"okb","PIPPIN":"pippin","POPCAT":"popcat","RIVER":"river","SATS":"sats-ordinals","SOON":"soon","TON":"the-open-network","USELESS":"useless","ZETA":"zetachain","ZORA":"zora"};    // Drift symbol -> CoinGecko id (non-Binance)
+const DF_TO_CG  = {"0G":"zero-gravity","1INCH":"1inch","2Z":"doublezero","AAVE":"aave","ACH":"alchemy-pay","ACT":"achain","ADA":"cardano","AERO":"aerodrome-finance","AEVO":"aevo-exchange","AGLD":"adventure-gold","AIXBT":"aixbt","ALGO":"algorand","ALLO":"allora","ANIME":"anime","APE":"ape-3","API3":"api3","APT":"aptos","ARB":"arbitrum","ARKM":"arkham","ASTER":"aster-2","ATOM":"cosmos","AUCTION":"auction","AVAX":"avalanche-2","AXS":"axie-infinity","BABY":"baby","BAND":"band-protocol","BARD":"lombard-protocol","BAT":"basic-attention-token","BCH":"bitcoin-cash","BERA":"berachain-bera","BICO":"biconomy","BIGTIME":"big-time","BILL":"bill-the-bear","BIO":"bio-protocol","BLUR":"blur","BNB":"binancecoin","BOME":"book-of-meme","BONK":"bonk","BRETT":"based-brett","BTC":"bitcoin","CELO":"celo","CFX":"chain-fox-2","CHZ":"chiliz","COMP":"compound-governance-token","CORE":"core-dao","CRCL":"just-a-circle","CRO":"crypto-com-chain","CRV":"curve-dao-token","DASH":"dash","DOGE":"dogecoin","DOT":"polkadot","DYDX":"dydx","EDEN":"eden","EGLD":"multiversx-egld","EIGEN":"eigenlayer","ENA":"ethena","ENJ":"enjincoin","ENS":"ethereum-name-service","ETH":"ethereum","ETHFI":"ether-fi","ETHW":"ethereum-pow-iou","FARTCOIN":"fartcoin","FIL":"filecoin","FLOKI":"floki","FLOW":"flow","FOGO":"fogo","GALA":"gala","GAS":"gas","GIGGLE":"giggle-fund","GLM":"golem","GMT":"stepn","GMX":"gmx","GRASS":"grass","GRT":"the-graph","HBAR":"hedera-hashgraph","HMSTR":"hamster-kombat","HOME":"home","HUMA":"huma-finance","HYPE":"hyperliquid","ICP":"internet-computer","ICX":"icon","IMX":"immutable-x","INIT":"initia","INJ":"injective-protocol","IOST":"iostoken","IOTA":"iota","IRYS":"irys","JELLYJELLY":"jelly-my-jelly","JTO":"jito-governance-token","JUP":"jupiter-exchange-solana","KAITO":"kaito","KAT":"karat","KITE":"kite","KMNO":"kamino","KSM":"kusama","LAYER":"solayer","LDO":"lido-dao","LINEA":"linea","LINK":"chainlink","LIT":"lit","LITE":"lumentum-robinhood-tokenized-stock","LPT":"livepeer","LQTY":"liquity","LRC":"loopring","LTC":"litecoin","LUNA":"terra-luna-2","MAGIC":"magic","MANA":"decentraland","MASK":"mask-network","MEGA":"megaeth","MEME":"memecoin","MERL":"merlin-chain","MET":"meteora","METIS":"metis-token","MEW":"cat-in-a-dogs-world","MINA":"mina-protocol","MOODENG":"moo-deng","MORPHO":"morpho","MOVE":"movement","MUBARAK":"mubarak","NEAR":"near","NEIRO":"neiro-on-ethereum","NEO":"neo","NIGHT":"midnight","NMR":"numeraire","NOT":"notcoin","OKB":"okb","ONDO":"ondo-finance","ONE":"one","ONT":"ontology","OP":"optimism","OPG":"opengradient","OPN":"opennetwork","ORDI":"ordinals","PARTI":"particle-network","PENDLE":"pendle","PENGU":"pudgy-penguins","PEOPLE":"constitutiondao","PEPE":"pepe","PIPPIN":"pippin","PLUME":"plume","PNUT":"peanut-the-squirrel","POL":"polygon-ecosystem-token","POPCAT":"popcat","PROVE":"provenance","PUMP":"pump-fun","PYTH":"pyth-network","QNT":"quant-network","QTUM":"qtum","RAY":"raydium","RENDER":"render-token","RESOLV":"resolv","RIVER":"river","ROBO":"robo_brokers","RSR":"reserve-rights-token","RVN":"ravencoin","SAHARA":"sahara-ai","SAND":"the-sandbox","SAPIEN":"sapien","SATS":"sats-ordinals","SEI":"sei-network","SENT":"sentient","SHIB":"shiba-inu","SIGN":"sign","SKY":"sky","SNX":"havven","SOL":"solana","SOON":"soon","SOPH":"sophon","SPK":"spark-2","SSV":"ssv-network","STRK":"starknet","STX":"blockstack","SUI":"sui","SUSHI":"sushi","SYRUP":"syrup-finance","TAO":"bittensor","THETA":"theta-token","TIA":"celestia","TON":"the-open-network","TRB":"tellor","TRUMP":"official-trump","TRX":"tron","TURBO":"turbo","UMA":"uma","UNI":"uniswap","USDC":"usd-coin","USELESS":"useless","VANA":"vana","VIRTUAL":"virtual-protocol","WAL":"walrus-2","WCT":"wallet-connect-token","WIF":"dogwifhat","WLD":"worldcoin-wld","WLFI":"world-liberty-financial","WOO":"woo-network","XLM":"stellar","XRP":"ripple","XTZ":"tezos","YFI":"yearn-finance","YGG":"yield-guild-games","ZEC":"zcash","ZEN":"horizen","ZETA":"zetachain","ZIL":"zilliqa","ZK":"zksync","ZKP":"zkpass","ZORA":"zora","ZRO":"layerzero","ZRX":"0x"};   // Drift symbol -> CoinGecko id (all)
+
+const PAIR_TO_DF = {};
+for (const [df, pair] of Object.entries(BINANCE)) PAIR_TO_DF[pair] = df;
+const ID_TO_DF = {};
+for (const [df, id] of Object.entries(DF_TO_CG)) if (!(id in ID_TO_DF)) ID_TO_DF[id] = df;
+
+const ALL = [...Object.keys(BINANCE), ...Object.keys(CG_ONLY)];
+
+const TIMEFRAMES = [["m1","1M"],["m5","5M"],["m15","15M"],["m30","30M"],["h1","1H"],["h4","4H"],["h24","24H"]];
+const WINDOWS = { m1:"1m", m5:"5m", m15:"15m", m30:"30m", h1:"1h", h4:"4h" };
+
+// ===================== State =====================
+const state = {};
+for (const df of ALL) state[df] = { price:null, vol24:null, mcap:null, name:df, image:"", chgCG:{h1:null,h24:null}, src: BINANCE[df] ? "binance" : "coingecko" };
+const live = {};      // pair -> { c, o, q }
+const anchors = {};   // df -> { m1,m5,m15,m30,h1,h4 }
+
+let activeTF = "h24";
+let sortCol = "chg", sortAsc = false;
+let filterMode = "all";
+let minVol = 0;
+let ready = false, lastUpdate = 0;
+
+const $ = id => document.getElementById(id);
+const tbody = $("tbody"), emptyEl = $("empty"), tflabel = $("tflabel");
+
+// ===================== Formatting =====================
+function fmtUSD(v) {
+  if (v == null || !isFinite(v)) return '<span class="dim">—</span>';
+  const a = Math.abs(v);
+  let s;
+  if (a >= 1e9) s = (v/1e9).toFixed(2) + "B";
+  else if (a >= 1e6) s = (v/1e6).toFixed(2) + "M";
+  else if (a >= 1e3) s = (v/1e3).toFixed(2) + "K";
+  else if (a >= 1) s = v.toFixed(2);
+  else if (a >= 0.001) s = v.toFixed(4);
+  else if (a >= 0.0001) s = v.toFixed(6);
+  else s = v.toPrecision(4);
+  return "$" + s;
+}
+function fmtPct(v) {
+  if (v == null || !isFinite(v)) return '<span class="dim">—</span>';
+  const cls = v > 0 ? "up" : v < 0 ? "down" : "dim";
+  const big = Math.abs(v) >= 5 ? " big" : "";
+  return `<span class="chg ${cls}${big}">${v > 0 ? "+" : ""}${v.toFixed(2)}%</span>`;
+}
+
+// ===================== Data model =====================
+function computeRows() {
+  const out = [];
+  for (const df of ALL) {
+    const s = state[df];
+    const r = { symbol: df, name: s.name, image: s.image, mcap: s.mcap, src: s.src, price: null, vol: null, chg: null, chgAll: {} };
+    if (s.src === "binance") {
+      const L = live[BINANCE[df]] || {};
+      const a = anchors[df] || {};
+      const price = L.c ? parseFloat(L.c) : s.price;
+      r.price = price;
+      r.vol = L.q ? parseFloat(L.q) : s.vol24;
+      for (const [key] of TIMEFRAMES) {
+        if (key === "h24") r.chgAll.h24 = (L.o && L.c) ? (parseFloat(L.c)/parseFloat(L.o) - 1) * 100 : s.chgCG.h24;
+        else r.chgAll[key] = (a[key] && price) ? (price / a[key] - 1) * 100 : null;
+      }
+    } else {
+      r.price = s.price; r.vol = s.vol24;
+      r.chgAll.h1 = s.chgCG.h1; r.chgAll.h24 = s.chgCG.h24;
+    }
+    r.chg = r.chgAll[activeTF];
+    out.push(r);
+  }
+  return out;
+}
+
+// ===================== Render =====================
+function render() {
+  const rows = computeRows();
+  const q = $("search").value.toLowerCase().trim();
+
+  let list = rows.filter(r => {
+    if (q && !r.symbol.toLowerCase().includes(q) && !(r.name || "").toLowerCase().includes(q)) return false;
+    if (minVol && !(r.vol >= minVol)) return false;
+    if (filterMode === "gainers" && !(r.chg > 0)) return false;
+    if (filterMode === "losers" && !(r.chg < 0)) return false;
+    return true;
+  });
+
+  const val = r => {
+    if (sortCol === "symbol") return r.symbol;
+    if (sortCol === "price") return r.price;
+    if (sortCol === "vol") return r.vol;
+    if (sortCol === "mcap") return r.mcap;
+    return r.chg;
+  };
+  list.sort((a, b) => {
+    const av = val(a), bv = val(b);
+    if (sortCol === "symbol") return sortAsc ? String(av).localeCompare(bv) : String(bv).localeCompare(av);
+    const an = (av == null || !isFinite(av)) ? -Infinity : av;
+    const bn = (bv == null || !isFinite(bv)) ? -Infinity : bv;
+    return sortAsc ? an - bn : bn - an;
+  });
+
+  $("count").textContent = list.length;
+  $("total").textContent = rows.length;
+
+  if (!list.length) { tbody.innerHTML = ""; emptyEl.style.display = "block"; return; }
+  emptyEl.style.display = "none";
+
+  tbody.innerHTML = list.map(r => {
+    const ico = r.image ? `<img class="ico" src="${r.image}" loading="lazy" alt="">` : `<span class="ico"></span>`;
+    return `<tr>
+      <td><div class="sym">${ico}<span class="s">${r.symbol}</span><span class="src ${r.src}" title="${r.src === 'binance' ? 'Binance live' : 'CoinGecko'}"></span><span class="n">${r.name || ""}</span></div></td>
+      <td class="num">${fmtUSD(r.price)}</td>
+      <td class="num">${fmtPct(r.chg)}</td>
+      <td class="num">${fmtUSD(r.vol)}</td>
+      <td class="num dim">${fmtUSD(r.mcap)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function setStatus(kind, text) { $("status").className = "status " + kind; $("status-text").textContent = text; }
+function markUpdated() { lastUpdate = Date.now(); }
+
+// ===================== REST: Binance =====================
+async function seed24h() {
+  const pairs = Object.values(BINANCE);
+  for (let i = 0; i < pairs.length; i += 150) {
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(pairs.slice(i, i+150)))}`);
+      if (!r.ok) continue;
+      for (const t of await r.json()) {
+        const L = live[t.symbol] || (live[t.symbol] = {});
+        L.o = t.openPrice; L.q = t.quoteVolume; if (L.c == null) L.c = t.lastPrice;
+      }
+    } catch (e) {}
+  }
+}
+async function seedWindows() {
+  const pairs = Object.values(BINANCE);
+  for (const [key, win] of Object.entries(WINDOWS)) {
+    for (let i = 0; i < pairs.length; i += 100) {
+      try {
+        const r = await fetch(`https://api.binance.com/api/v3/ticker?symbols=${encodeURIComponent(JSON.stringify(pairs.slice(i, i+100)))}&windowSize=${win}`);
+        if (!r.ok) continue;
+        for (const t of await r.json()) {
+          const df = PAIR_TO_DF[t.symbol]; if (!df) continue;
+          (anchors[df] = anchors[df] || {})[key] = parseFloat(t.openPrice);
+        }
+      } catch (e) {}
+      await new Promise(r => setTimeout(r, 120));
+    }
+  }
+}
+
+// ===================== REST: CoinGecko =====================
+async function cgMarkets(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    try {
+      const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids.slice(i, i+150).join(",")}&per_page=250&sparkline=false&price_change_percentage=1h,24h`);
+      if (r.ok) out.push(...await r.json());
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return out;
+}
+async function seedCGOnly() {
+  const ids = Object.values(CG_ONLY); if (!ids.length) return;
+  for (const c of await cgMarkets(ids)) {
+    const df = ID_TO_DF[c.id]; if (!df || !state[df]) continue;
+    const s = state[df];
+    s.price = c.current_price; s.vol24 = c.total_volume; s.mcap = c.market_cap;
+    s.name = c.name; s.image = c.image || s.image;
+    s.chgCG.h1 = c.price_change_percentage_1h_in_currency;
+    s.chgCG.h24 = c.price_change_percentage_24h_in_currency;
+  }
+}
+async function seedCGAll() {
+  const ids = [...new Set(Object.values(DF_TO_CG))];
+  for (const c of await cgMarkets(ids)) {
+    const df = ID_TO_DF[c.id]; if (!df || !state[df]) continue;
+    const s = state[df];
+    s.mcap = c.market_cap; s.name = c.name; s.image = c.image || s.image;
+    if (s.src === "coingecko" && s.price == null) s.price = c.current_price;
+  }
+}
+
+// ===================== WebSocket =====================
+const WS_URLS = ["wss://stream.binance.com:9443/ws/!miniTicker@arr", "wss://data-stream.binance.vision/ws/!miniTicker@arr"];
+let ws, wsRetry = 0, wsIdx = 0;
+function connectWS() {
+  try { ws = new WebSocket(WS_URLS[wsIdx % WS_URLS.length]); }
+  catch (e) { setStatus("offline", "OFFLINE"); setTimeout(connectWS, 5000); return; }
+  ws.onopen = () => { wsRetry = 0; };
+  ws.onmessage = ev => {
+    lastUpdate = Date.now();
+    if (ready) setStatus("live", "LIVE");
+    let arr; try { arr = JSON.parse(ev.data); } catch (e) { return; }
+    for (const d of arr) { const L = live[d.s] || (live[d.s] = {}); L.c = d.c; L.o = d.o; L.q = d.q; }
+    scheduleRender();
+  };
+  ws.onclose = () => { setStatus("connecting", "RECONNECTING"); wsRetry++; wsIdx++; setTimeout(connectWS, Math.min(1000 * wsRetry, 10000)); };
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
+}
+
+// ===================== Loop / events =====================
+let dirty = true;
+const scheduleRender = () => { dirty = true; };
+setInterval(() => {
+  if (dirty && ready) { render(); dirty = false; }
+  const t = lastUpdate ? new Date(lastUpdate) : null;
+  $("updated").textContent = t ? t.toLocaleTimeString() : "—";
+}, 1000);
+
+$("search").addEventListener("input", render);
+
+$("tfgroup").addEventListener("click", e => {
+  const b = e.target.closest(".tfbtn"); if (!b) return;
+  $("tfgroup").querySelectorAll(".tfbtn").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  activeTF = b.dataset.tf;
+  tflabel.textContent = b.textContent;
+  render();
+});
+
+$("filters").addEventListener("click", e => {
+  const b = e.target.closest(".fbtn"); if (!b) return;
+  $("filters").querySelectorAll(".fbtn").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  filterMode = b.dataset.filter;
+  render();
+});
+
+$("volfilter").addEventListener("change", e => { minVol = +e.target.value; render(); });
+
+document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => {
+  const col = th.dataset.col;
+  if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = col === "symbol"; }
+  document.querySelectorAll("thead th .arr").forEach(a => a.textContent = "");
+  const arr = th.querySelector(".arr"); if (arr) arr.textContent = sortAsc ? "▲" : "▼";
+  render();
+}));
+
+// ===================== Init =====================
+async function init() {
+  setStatus("connecting", "LOADING");
+  const tasks = [
+    seed24h().then(() => { if (ready) scheduleRender(); }),
+    seedWindows().then(() => { if (ready) scheduleRender(); }),
+    seedCGOnly().then(() => { if (ready) scheduleRender(); }),
+    seedCGAll().then(() => { if (ready) scheduleRender(); })
+  ];
+  // show whatever we have as soon as the first data lands, and never hang
+  await Promise.race([Promise.allSettled(tasks), new Promise(r => setTimeout(r, 6000))]);
+  ready = true;
+  setStatus("connecting", "CONNECTING");
+  connectWS();
+  render();
+
+  setInterval(() => { seedWindows().then(scheduleRender); }, 45000);
+  setInterval(() => { seed24h().then(scheduleRender); }, 60000);
+  setInterval(() => { seedCGOnly().then(scheduleRender); }, 90000);
+  setInterval(() => { seedCGAll().then(scheduleRender); }, 300000);
+  setInterval(() => { if (Date.now() - lastUpdate > 15000) seed24h(); }, 5000);
+}
+init();
+</script>
+</body>
+</html>
