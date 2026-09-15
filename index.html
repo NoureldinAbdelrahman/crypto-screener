@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drift Fund Crypto Screener</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #d1d5db; }
+  .header { background: #1a1d29; padding: 16px 24px; border-bottom: 1px solid #2d3148; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .header h1 { font-size: 20px; color: #fff; white-space: nowrap; }
+  .header .subtitle { font-size: 13px; color: #9ca3af; }
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; flex: 1; }
+  .search-box { background: #2d3148; border: 1px solid #3d4260; border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 14px; width: 220px; outline: none; }
+  .search-box:focus { border-color: #6366f1; }
+  .search-box::placeholder { color: #6b7280; }
+  .filter-btn { background: #2d3148; border: 1px solid #3d4260; border-radius: 6px; padding: 6px 12px; color: #9ca3af; font-size: 12px; cursor: pointer; }
+  .filter-btn:hover { background: #3d4260; color: #fff; }
+  .filter-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+  .stats { padding: 8px 24px; background: #141620; border-bottom: 1px solid #2d3148; font-size: 12px; color: #6b7280; display: flex; gap: 16px; align-items: center; }
+  .stats .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { position: sticky; top: 0; z-index: 10; }
+  th { background: #1a1d29; padding: 10px 12px; text-align: right; font-weight: 600; color: #9ca3af; border-bottom: 1px solid #2d3148; cursor: pointer; white-space: nowrap; user-select: none; }
+  th:first-child { text-align: left; }
+  th:hover { color: #fff; }
+  th .sort-arrow { margin-left: 4px; font-size: 10px; }
+  td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #1f2233; white-space: nowrap; }
+  td:first-child { text-align: left; }
+  tr:hover { background: #1a1d29; }
+  .coin-cell { display: flex; align-items: center; gap: 8px; }
+  .coin-icon { width: 20px; height: 20px; border-radius: 50%; }
+  .coin-symbol { font-weight: 600; color: #fff; }
+  .coin-name { color: #6b7280; font-size: 12px; }
+  .positive { color: #22c55e; }
+  .negative { color: #ef4444; }
+  .neutral { color: #6b7280; }
+  .fmt-usd { font-variant-numeric: tabular-nums; }
+  .fmt-pct { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .timeframe-btns { display: flex; gap: 4px; }
+  .tf-btn { background: none; border: 1px solid #3d4260; border-radius: 4px; padding: 3px 8px; font-size: 11px; color: #9ca3af; cursor: pointer; }
+  .tf-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+  #no-results { text-align: center; padding: 40px; color: #6b7280; display: none; }
+  .loading { text-align: center; padding: 60px; color: #9ca3af; font-size: 16px; }
+  .loading .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #3d4260; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 10px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { color: #ef4444; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Drift Fund Screener</h1>
+    <div class="subtitle">Live data from CoinGecko &middot; Auto-refreshes every 60s</div>
+  </div>
+  <div class="controls">
+    <input type="text" class="search-box" id="search" placeholder="Search symbol or name...">
+    <div class="timeframe-btns" id="tf-btns">
+      <button class="tf-btn" data-tf="pct_1h">1H</button>
+      <button class="tf-btn active" data-tf="pct_24h">24H</button>
+      <button class="tf-btn" data-tf="pct_7d">7D</button>
+      <button class="tf-btn" data-tf="pct_14d">14D</button>
+      <button class="tf-btn" data-tf="pct_30d">30D</button>
+      <button class="tf-btn" data-tf="pct_200d">200D</button>
+      <button class="tf-btn" data-tf="pct_1y">1Y</button>
+    </div>
+    <button class="filter-btn" id="filter-gainers">Gainers</button>
+    <button class="filter-btn" id="filter-losers">Losers</button>
+    <button class="filter-btn" id="filter-all" style="display:none;">Show All</button>
+  </div>
+</div>
+
+<div class="stats" id="stats"><span class="spinner"></span> Loading market data...</div>
+
+<div class="table-wrap">
+<table id="table" style="display:none;">
+<thead>
+<tr>
+  <th data-col="symbol">#<span class="sort-arrow"></span></th>
+  <th data-col="price">Price<span class="sort-arrow"></span></th>
+  <th data-col="active_tf" class="active-tf-col">Chg% 24H<span class="sort-arrow"></span></th>
+  <th data-col="market_cap">Mkt Cap<span class="sort-arrow"></span></th>
+  <th data-col="volume">Vol 24H<span class="sort-arrow"></span></th>
+  <th data-col="circulating_supply">Circ Supply<span class="sort-arrow"></span></th>
+  <th data-col="ath_change_pct">From ATH<span class="sort-arrow"></span></th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+<div id="no-results">No coins match your filter.</div>
+
+<script>
+// ============================================================
+// Drift Fund symbols mapped to CoinGecko IDs
+// ============================================================
+const DF_IDS = {
+"BTC":"bitcoin","ETH":"ethereum","DOGE":"dogecoin","SOL":"solana","XRP":"ripple",
+"ADA":"cardano","AVAX":"avalanche-2","DOT":"polkadot","LINK":"chainlink","UNI":"uniswap",
+"AAVE":"aave","ATOM":"cosmos","LTC":"litecoin","BCH":"bitcoin-cash","XLM":"stellar",
+"NEAR":"near","APT":"aptos","ARB":"arbitrum","OP":"optimism","SUI":"sui",
+"SEI":"sei-network","TON":"the-open-network","TRX":"tron","FIL":"filecoin","ICP":"internet-computer",
+"HBAR":"hedera-hashgraph","ALGO":"algorand","SUSHI":"sushi","COMP":"compound-governance-token",
+"MKR":"maker","YFI":"yearn-finance","SNX":"havven","CRV":"curve-dao-token","1INCH":"1inch",
+"GRT":"the-graph","USDC":"usd-coin","ENJ":"enjincoin","BAT":"basic-attention-token",
+"CHZ":"chiliz","MANA":"decentraland","SAND":"the-sandbox","AXS":"axie-infinity",
+"FLOW":"flow","MINA":"mina-protocol","EGLD":"multiversx-egld","THETA":"theta-token",
+"XTZ":"tezos","VET":"vechain","TRB":"tellor","QTUM":"qtum","ZEC":"zcash",
+"DASH":"dash","LRC":"loopring","LPT":"livepeer","ZRX":"0x","DYDX":"dydx",
+"LUNA":"terra-luna-2","NEO":"neo","GALA":"gala","ZIL":"zilliqa","ICX":"icon",
+"IOTA":"iota","ONT":"ontology","RVN":"ravencoin","XMR":"monero","STX":"blockstack",
+"CELO":"celo","KSM":"kusama","FLOKI":"floki","BONK":"bonk","PEPE":"pepe",
+"WIF":"dogwifhat","SHIB":"shiba-inu","WLD":"worldcoin-wld","TAO":"bittensor",
+"HYPE":"hyperliquid","ENA":"ethena","PENDLE":"pendle","LDO":"lido-dao","SSV":"ssv-network",
+"MASK":"mask-network","RENDER":"render-token","IMX":"immutable-x","GMT":"stepn",
+"JUP":"jupiter-exchange-solana","JTO":"jito-governance-token","RAY":"raydium",
+"WOO":"woo-network","INJ":"injective-protocol","BAND":"band-protocol","NMR":"numeraire",
+"UMA":"uma","API3":"api3","OKB":"okb","GAS":"gas","GLM":"golem","QNT":"quant-network",
+"PENGU":"pudgy-penguins","MOODENG":"moo-deng","BOME":"book-of-meme","ORDI":"ordinals",
+"SATS":"sats-ordinals","TRUMP":"official-trump","MEW":"cat-in-a-dogs-world",
+"MEME":"memecoin","PEOPLE":"constitutiondao","STRK":"starknet","ZK":"zksync",
+"ZRO":"layerzero","PYTH":"pyth-network","ONDO":"ondo-finance","BLUR":"blur",
+"AGLD":"adventure-gold","BIGTIME":"big-time","LQTY":"liquity","OCEAN":"ocean-protocol",
+"BAL":"balancer","RUNE":"thorchain","KAVA":"kava","XEM":"nem","WAVES":"waves",
+"SC":"siacoin","DCR":"decred","LSK":"lisk","ARK":"ark","KNC":"kyber-network-crystal",
+"CVC":"civic","STORJ":"storj","OXT":"orchid-protocol","NKN":"nkn",
+"XVG":"verge","BTG":"bitcoin-gold","STEEM":"steem","NANO":"nano",
+"BTS":"bitshares","PPT":"populous","REQ":"request-network","POWR":"power-ledger",
+"WTC":"waltonchain","PIVX":"pivx","VTC":"vertcoin","DGB":"digibyte",
+"RDD":"reddcoin","PPC":"peercoin","NMC":"namecoin",
+"ZEN":"horizen","ZETA":"zetachain","MERL":"merlin-chain","POL":"polygon-ecosystem-token",
+"TIA":"celestia","MORPHO":"morpho","EIGEN":"eigenlayer","BIO":"bio-protocol",
+"INIT":"initia","RESOLV":"resolv","PUMP":"pump-fun","PNUT":"peanut-the-squirrel",
+"FARTCOIN":"fartcoin","NEIRO":"neiro-on-ethereum","KAITO":"kaito","PLUME":"plume",
+"AERO":"aerodrome-finance","AEVO":"aevo-exchange","LAYER":"swap-layer","SPK":"spk",
+"ZORA":"zora","MOVE":"movement","VANA":"vana","VIRTUAL":"virtual-protocol",
+"WCT":"wallet-connect-token","SYRUP":"syrup-finance","LINEA":"linea",
+"KMNO":"kamino","PARTI":"particle-network","KITE":"kite","KGEN":"kgen",
+"DOOD":"doodles","SENT":"sentinel","SAHARA":"sahara-ai","SAPIEN":"sapien",
+"SIGN":"sign","SOON":"soon","SOPH":"sophon","SPACE":"space-id",
+"TRIA":"tria","USELESS":"useless","PROVE":"provenance","OPN":"opennetwork",
+"BASED":"based","BEAT":"beat","BLEND":"blend","BREV":"brevan-howard",
+"BSB":"bsb","CHIP":"chip","COAI":"coai","CRDO":"crdo",
+"DRAM":"drama","EDGE":"edge","ENSO":"enso","FOGO":"fogo",
+"GIGGLE":"giggle","HOME":"home","INFQ":"infq","IRYS":"irys",
+"JELLYJELLY":"jellyjelly","LAB":"lab","LIGHT":"light","LIT":"litentry",
+"LUNR":"lunar","MEGA":"mega","MET":"metronome","MMT":"mmt",
+"MON":"mon","MUBARAK":"mubarak","NIGHT":"night","NOW":"now",
+"PIEVERSE":"pieverse","PIPPIN":"ppin","RAVE":"rave","RLS":"rls",
+"ROBO":"robo","SLX":"slx","SNDK":"sandblock","SHLD":"shield",
+"STABLE":"stable","SWAY":"sway","STRIKE":"strike","TURBO":"turbo",
+"TRUST":"trust","TRUTH":"truth","USAR":"usar",
+"FLNC":"flamingo-finance","CRWV":"cwrv","GEV":"gev",
+"WAL":"wal","ZBT":"zbt","ZAMA":"zama","WET":"wet",
+"ZLW":"zlw","FPS":"fps","EYWA":"eywa","ZCX":"zcx","OBI":"obi",
+"PIRATE":"pirate","DIONE":"dione","MGT":"mgt","SIN":"sin","VSX":"vsx",
+"ASTR":"astar","BMNR":"bmnr","CBRS":"cbrs","CGNX":"cgnx",
+"ACU":"acu","ALLO":"allo","ANIME":"anime","ANTHROPIC":"anthropic",
+"ASTER":"aster","ASTS":"asts","AUCTION":"bounce","AZTEC":"aztec",
+"BABY":"baby","BARD":"bard","BARD":"bloomer",
+"BARB":"barb","BABYDOGE":"baby-doge-coin",
+"2Z":"2z","0G":"0g"
+};
+
+// ============================================================
+// State
+// ============================================================
+let COINS = [];
+let currentTF = "pct_24h";
+let currentSort = { col: "market_cap", asc: false };
+let filterMode = "all";
+
+const tbody = document.getElementById("tbody");
+const table = document.getElementById("table");
+const searchInput = document.getElementById("search");
+const statsEl = document.getElementById("stats");
+const noResults = document.getElementById("no-results");
+const tfBtns = document.getElementById("tf-btns");
+
+// ============================================================
+// CoinGecko API
+// ============================================================
+const BATCH_SIZE = 250;
+const REFRESH_MS = 60_000;
+
+async function fetchAll() {
+  const ids = Object.values(DF_IDS);
+  const all = [];
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${batch.join(",")}&order=market_cap_desc&per_page=${BATCH_SIZE}&page=1&sparkline=false&price_change_percentage=1h,24h,7d,14d,30d,200d,1y`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`CoinGecko API error ${resp.status}`);
+    const data = await resp.json();
+    all.push(...data);
+    if (i + BATCH_SIZE < ids.length) await new Promise(r => setTimeout(r, 1500));
+  }
+  return all;
+}
+
+// Reverse map: cg_id -> df_symbol
+const idToSymbol = {};
+for (const [sym, id] of Object.entries(DF_IDS)) idToSymbol[id] = sym;
+
+function enrich(data) {
+  return data.map(c => ({
+    symbol: idToSymbol[c.id] || c.symbol.toUpperCase(),
+    name: c.name || "",
+    price: c.current_price,
+    market_cap: c.market_cap,
+    volume: c.total_volume,
+    circulating_supply: c.circulating_supply,
+    ath: c.ath,
+    ath_change_pct: c.ath_change_percentage,
+    pct_1h: c.price_change_percentage_1h_in_currency,
+    pct_24h: c.price_change_percentage_24h_in_currency,
+    pct_7d: c.price_change_percentage_7d_in_currency,
+    pct_14d: c.price_change_percentage_14d_in_currency,
+    pct_30d: c.price_change_percentage_30d_in_currency,
+    pct_200d: c.price_change_percentage_200d_in_currency,
+    pct_1y: c.price_change_percentage_1y_in_currency,
+    image: c.image || "",
+  }));
+}
+
+// ============================================================
+// Formatting
+// ============================================================
+function fmtUSD(v) {
+  if (v == null) return "—";
+  if (v >= 1e9) return "$" + (v/1e9).toFixed(2) + "B";
+  if (v >= 1e6) return "$" + (v/1e6).toFixed(2) + "M";
+  if (v >= 1e3) return "$" + (v/1e3).toFixed(1) + "K";
+  if (v >= 1) return "$" + v.toFixed(2);
+  if (v >= 0.001) return "$" + v.toFixed(4);
+  if (v >= 0.000001) return "$" + v.toFixed(6);
+  return "$" + v.toFixed(8);
+}
+
+function fmtSupply(v) {
+  if (v == null) return "—";
+  if (v >= 1e12) return (v/1e12).toFixed(2) + "T";
+  if (v >= 1e9) return (v/1e9).toFixed(2) + "B";
+  if (v >= 1e6) return (v/1e6).toFixed(2) + "M";
+  if (v >= 1e3) return (v/1e3).toFixed(1) + "K";
+  return v.toFixed(0);
+}
+
+function fmtPct(v) {
+  if (v == null) return '<span class="neutral">—</span>';
+  const cls = v > 0 ? "positive" : v < 0 ? "negative" : "neutral";
+  const sign = v > 0 ? "+" : "";
+  return `<span class="${cls}">${sign}${v.toFixed(2)}%</span>`;
+}
+
+// ============================================================
+// Render
+// ============================================================
+function render() {
+  const q = searchInput.value.toLowerCase().trim();
+  let filtered = COINS.filter(c => {
+    if (q && !c.symbol.toLowerCase().includes(q) && !c.name.toLowerCase().includes(q)) return false;
+    if (filterMode === "gainers") return (c[currentTF] ?? -Infinity) > 0;
+    if (filterMode === "losers") return (c[currentTF] ?? Infinity) < 0;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    let av, bv;
+    if (currentSort.col === "symbol") {
+      av = a.symbol; bv = b.symbol;
+      return currentSort.asc ? av.localeCompare(bv) : bv.localeCompare(av);
+    }
+    av = a[currentSort.col] ?? (currentSort.asc ? Infinity : -Infinity);
+    bv = b[currentSort.col] ?? (currentSort.asc ? Infinity : -Infinity);
+    return currentSort.asc ? av - bv : bv - av;
+  });
+
+  statsEl.innerHTML = `<span class="live-dot"></span> Showing <strong>${filtered.length}</strong> / ${COINS.length} coins &middot; Updated ${new Date().toLocaleTimeString()}`;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = "";
+    noResults.style.display = "block";
+    table.style.display = "none";
+    return;
+  }
+  noResults.style.display = "none";
+  table.style.display = "";
+
+  tbody.innerHTML = filtered.map(c => `
+    <tr>
+      <td><div class="coin-cell">
+        <img class="coin-icon" src="${c.image}" alt="" loading="lazy">
+        <div><span class="coin-symbol">${c.symbol}</span> <span class="coin-name">${c.name}</span></div>
+      </div></td>
+      <td class="fmt-usd">${fmtUSD(c.price)}</td>
+      <td class="fmt-pct">${fmtPct(c[currentTF])}</td>
+      <td class="fmt-usd">${fmtUSD(c.market_cap)}</td>
+      <td class="fmt-usd">${fmtUSD(c.volume)}</td>
+      <td>${fmtSupply(c.circulating_supply)}</td>
+      <td class="fmt-pct">${fmtPct(c.ath_change_pct)}</td>
+    </tr>
+  `).join("");
+}
+
+// ============================================================
+// Events
+// ============================================================
+searchInput.addEventListener("input", render);
+
+tfBtns.addEventListener("click", e => {
+  const btn = e.target.closest(".tf-btn");
+  if (!btn) return;
+  tfBtns.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentTF = btn.dataset.tf;
+  document.querySelector(".active-tf-col").innerHTML = `<span>${btn.textContent}</span><span class="sort-arrow"></span>`;
+  render();
+});
+
+document.querySelectorAll("th[data-col]").forEach(th => {
+  th.addEventListener("click", () => {
+    const col = th.dataset.col === "active_tf" ? currentTF : th.dataset.col;
+    if (currentSort.col === col) {
+      currentSort.asc = !currentSort.asc;
+    } else {
+      currentSort = { col, asc: col === "symbol" };
+    }
+    document.querySelectorAll("th .sort-arrow").forEach(s => s.textContent = "");
+    th.querySelector(".sort-arrow").textContent = currentSort.asc ? " ▲" : " ▼";
+    render();
+  });
+});
+
+document.getElementById("filter-gainers").addEventListener("click", function() {
+  filterMode = filterMode === "gainers" ? "all" : "gainers";
+  this.classList.toggle("active");
+  document.getElementById("filter-losers").classList.remove("active");
+  document.getElementById("filter-all").style.display = filterMode === "all" ? "none" : "inline-block";
+  render();
+});
+
+document.getElementById("filter-losers").addEventListener("click", function() {
+  filterMode = filterMode === "losers" ? "all" : "losers";
+  this.classList.toggle("active");
+  document.getElementById("filter-gainers").classList.remove("active");
+  document.getElementById("filter-all").style.display = filterMode === "all" ? "none" : "inline-block";
+  render();
+});
+
+document.getElementById("filter-all").addEventListener("click", function() {
+  filterMode = "all";
+  document.getElementById("filter-gainers").classList.remove("active");
+  document.getElementById("filter-losers").classList.remove("active");
+  this.style.display = "none";
+  render();
+});
+
+// ============================================================
+// Init — fetch + auto-refresh every 60s
+// ============================================================
+async function init() {
+  try {
+    const raw = await fetchAll();
+    COINS = enrich(raw);
+    COINS.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+    render();
+  } catch (err) {
+    statsEl.innerHTML = `<span class="error-msg">Failed to load data: ${err.message}. Retrying in 30s...</span>`;
+    setTimeout(init, 30000);
+    return;
+  }
+  setInterval(async () => {
+    try {
+      const raw = await fetchAll();
+      COINS = enrich(raw);
+      COINS.sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+      render();
+    } catch (e) { /* keep stale data */ }
+  }, REFRESH_MS);
+}
+
+init();
+</script>
+</body>
+</html>
