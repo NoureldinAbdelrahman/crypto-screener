@@ -167,6 +167,19 @@
     flex-shrink: 0;
   }
   .news-ticker .label.alert { animation: label-flash 0.5s ease-in-out infinite; }
+  .news-ticker .countdown {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 20px; padding: 2px 10px; height: 22px;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; color: #f0b90b;
+    white-space: nowrap; flex-shrink: 0; margin-left: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .news-ticker .countdown .cd-dot { width: 6px; height: 6px; border-radius: 50%; background: #f0b90b; flex-shrink: 0; animation: cd-pulse 1.5s ease-in-out infinite; }
+  .news-ticker .countdown.urgent { color: #ef5350; border-color: rgba(239,83,80,.4); }
+  .news-ticker .countdown.urgent .cd-dot { background: #ef5350; animation-duration: .4s; }
+  .news-ticker .countdown.empty { opacity: 0; }
+  @keyframes cd-pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
   .news-ticker .events {
     flex: 1; overflow: hidden; padding: 0 12px;
     display: flex; align-items: center;
@@ -174,7 +187,7 @@
   .news-ticker .events-inner {
     display: inline-block; white-space: nowrap;
     color: #fff; font-size: 12px;
-    animation: news-scroll 45s linear infinite;
+    animation: news-scroll 90s linear infinite;
     will-change: transform;
   }
   .news-ticker:hover .events-inner { animation-play-state: paused; }
@@ -264,6 +277,7 @@
 
 <div class="news-ticker" id="news-ticker">
   <span class="label" id="news-label">NEWS</span>
+  <span class="countdown empty" id="news-countdown"><span class="cd-dot"></span><span id="cd-text"></span></span>
   <div class="events"><div class="events-inner" id="news-scroll-inner"></div></div>
 </div>
 
@@ -664,6 +678,31 @@ function renderNewsTicker() {
   el.style.animation = "";
 }
 
+function renderCountdown() {
+  const now = Date.now();
+  const cd = $("news-countdown"), cdText = $("cd-text");
+  let next = null;
+  for (const e of newsEvents) {
+    const t = new Date(e.time).getTime();
+    if (t > now) { next = e; break; }
+  }
+  if (!next) { cd.classList.add("empty"); cd.classList.remove("urgent"); return; }
+  const diff = new Date(next.time).getTime() - now;
+  const sec = Math.floor(diff / 1000);
+  const urgent = sec <= 300;
+  cd.classList.remove("empty");
+  cd.classList.toggle("urgent", urgent);
+  if (sec <= 0) { cdText.textContent = next.title + " — NOW"; return; }
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  let str = "";
+  if (h > 0) str = h + "h " + m + "m";
+  else if (m > 0) str = m + "m " + s + "s";
+  else str = s + "s";
+  cdText.textContent = str;
+}
+
 function checkNewsAlerts() {
   const now = Date.now(), ticker = $("news-ticker"), label = $("news-label");
   let any5m = false, any1m = false;
@@ -790,8 +829,9 @@ init();
 // ===================== Init news =====================
 loadNewsEvents();
 renderNewsTicker();
+renderCountdown();
 renderNewsEventsList();
-setInterval(() => { renderNewsTicker(); checkNewsAlerts(); }, 1000);
+setInterval(() => { renderNewsTicker(); renderCountdown(); checkNewsAlerts(); }, 1000);
 </script>
 </body>
 </html>
