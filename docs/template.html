@@ -331,6 +331,7 @@
       <input type="datetime-local" id="ev-time">
       <button class="news-add-btn" id="news-add-btn">Add Event</button>
       <div class="news-events-list" id="news-events-list"></div>
+      <button class="news-clear-btn" id="news-reset-btn" style="margin-top:6px;border-color:var(--accent);color:var(--accent)">Reset to Drift Fund Calendar</button>
     </div>
   </div>
 </div>
@@ -586,8 +587,34 @@ document.querySelectorAll("thead th").forEach(th => th.addEventListener("click",
 const NEWS_KEY = "drift_news_events";
 let newsEvents = [], alerted5m = new Set(), alerted1m = new Set(), audioCtx = null;
 
+const DRIFTFUND_SEED = [
+  {t:"US Core Retail Sales (MoM) (Aug)",       d:"2026-09-16T12:30:00Z"},
+  {t:"US Retail Sales (MoM) (Aug)",             d:"2026-09-16T12:30:00Z"},
+  {t:"US Crude Oil Inventories",                d:"2026-09-16T14:30:00Z"},
+  {t:"US Fed Interest Rate Decision",           d:"2026-09-16T18:00:00Z"},
+  {t:"US FOMC Economic Projections",            d:"2026-09-16T18:00:00Z"},
+  {t:"US FOMC Statement",                       d:"2026-09-16T18:00:00Z"},
+  {t:"US FOMC Press Conference",                d:"2026-09-16T18:30:00Z"},
+  {t:"EU CPI (YoY) (Aug)",                      d:"2026-09-17T09:00:00Z"},
+  {t:"UK BoE Interest Rate Decision (Sep)",     d:"2026-09-17T11:00:00Z"},
+  {t:"US Philadelphia Fed Mfg Index (Sep)",     d:"2026-09-17T12:30:00Z"},
+  {t:"US Initial Jobless Claims",               d:"2026-09-17T12:30:00Z"},
+  {t:"JP BoJ Interest Rate Decision",           d:"2026-09-18T03:00:00Z"},
+  {t:"US S&P Global Mfg PMI (Sep)",             d:"2026-09-23T13:45:00Z"},
+  {t:"US S&P Global Services PMI (Sep)",        d:"2026-09-23T13:45:00Z"},
+  {t:"CH SNB Interest Rate Decision (Q3)",      d:"2026-09-24T07:30:00Z"},
+  {t:"US New Home Sales (Aug)",                 d:"2026-09-24T14:00:00Z"},
+  {t:"US Durable Goods Orders (MoM) (Aug)",    d:"2026-09-25T12:30:00Z"},
+];
+
 function loadNewsEvents() {
-  try { newsEvents = JSON.parse(localStorage.getItem(NEWS_KEY) || "[]"); } catch(e) { newsEvents = []; }
+  try { newsEvents = JSON.parse(localStorage.getItem(NEWS_KEY) || ""); } catch(e) { newsEvents = null; }
+  if (!Array.isArray(newsEvents) || !newsEvents.length) {
+    newsEvents = DRIFTFUND_SEED.filter(e => new Date(e.d).getTime() > Date.now() - 60000).map((e,i) => ({
+      id: "df" + i, title: e.t, time: e.d
+    }));
+    saveNewsEvents();
+  }
 }
 function saveNewsEvents() { localStorage.setItem(NEWS_KEY, JSON.stringify(newsEvents)); }
 function addNewsEvent(title, timeISO) {
@@ -706,6 +733,14 @@ $("news-events-list").addEventListener("click", e => {
     newsEvents = []; alerted5m.clear(); alerted1m.clear();
     saveNewsEvents(); renderNewsTicker(); renderNewsEventsList();
   }
+});
+
+$("news-reset-btn").addEventListener("click", () => {
+  newsEvents = DRIFTFUND_SEED.filter(e => new Date(e.d).getTime() > Date.now() - 60000).map((e,i) => ({
+    id: "df" + i, title: e.t, time: e.d
+  }));
+  alerted5m.clear(); alerted1m.clear();
+  saveNewsEvents(); renderNewsTicker(); renderNewsEventsList();
 });
 
 // ===================== Init =====================
