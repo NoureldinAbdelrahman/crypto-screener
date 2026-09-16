@@ -174,6 +174,13 @@
   .news-ticker .events-inner {
     display: inline-block; white-space: nowrap;
     color: #fff; font-size: 12px;
+    animation: news-scroll 45s linear infinite;
+    will-change: transform;
+  }
+  .news-ticker:hover .events-inner { animation-play-state: paused; }
+  @keyframes news-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
   }
   .news-ticker .events-inner .sep { color: #ef5350; margin: 0 18px; font-size: 8px; }
   .news-ticker .events-inner b { font-weight: 700; }
@@ -327,7 +334,7 @@
     <div class="news-modal-body">
       <label for="ev-title">Event Title</label>
       <input type="text" id="ev-title" placeholder="e.g. FOMC Statement">
-      <label for="ev-time">Date &amp; Time (UTC)</label>
+      <label for="ev-time">Date &amp; Time (GMT+3)</label>
       <input type="datetime-local" id="ev-time">
       <button class="news-add-btn" id="news-add-btn">Add Event</button>
       <div class="news-events-list" id="news-events-list"></div>
@@ -628,20 +635,33 @@ function deleteNewsEvent(id) {
   saveNewsEvents(); renderNewsTicker(); renderNewsEventsList();
 }
 
+function fmtGMT3(d) {
+  return new Date(d.getTime() + 3*3600*1000).toISOString().slice(11,16) + " GMT+3";
+}
+function fmtGMT3Short(d) {
+  return new Date(d.getTime() + 3*3600*1000).toISOString().slice(11,16);
+}
+
 function renderNewsTicker() {
   const now = Date.now();
   const upcoming = newsEvents.filter(e => new Date(e.time).getTime() > now - 60000);
   const el = $("news-scroll-inner");
-  if (!upcoming.length) { el.innerHTML = '<span style="color:#787b86">No upcoming news events</span>'; return; }
-  el.innerHTML = upcoming.map(e => {
+  if (!upcoming.length) {
+    el.innerHTML = '<span style="color:#787b86">No upcoming news events</span>';
+    el.style.animation = "none";
+    return;
+  }
+  const build = () => upcoming.map(e => {
     const t = new Date(e.time);
-    const ts = t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}) + " UTC";
+    const ts = fmtGMT3(t);
     const mins = Math.round((t.getTime() - now) / 60000);
     let urg = "";
     if (mins <= 0 && mins > -1) urg = ' <b style="color:#ef5350">NOW</b>';
     else if (mins <= 5 && mins > 0) urg = ` <b style="color:#f0b90b">${mins}m</b>`;
-    return `<span>${e.title} — ${ts}${urg}</span><span class="sep">&#x25CF;</span>`;
+    return `<span>${e.title} &mdash; ${ts}${urg}</span><span class="sep">&#x25CF;</span>`;
   }).join("");
+  el.innerHTML = build() + build();
+  el.style.animation = "";
 }
 
 function checkNewsAlerts() {
@@ -653,7 +673,7 @@ function checkNewsAlerts() {
       any5m = true;
       if (!alerted5m.has(ev.id)) {
         alerted5m.add(ev.id);
-        showNotification("News in 5 min", ev.title + " — " + new Date(ev.time).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}) + " UTC");
+        showNotification("News in 5 min", ev.title + " — " + fmtGMT3Short(new Date(ev.time)));
         playAlertSound(440, 300);
       }
     }
@@ -700,7 +720,7 @@ function renderNewsEventsList() {
   list.innerHTML = newsEvents.map(e => {
     const t = new Date(e.time);
     const ds = t.toLocaleDateString([], {month:"short",day:"numeric"});
-    const ts = t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false}) + " UTC";
+    const ts = fmtGMT3Short(t) + " GMT+3";
     return `<div class="news-event-item"><span class="ev-title">${e.title}</span><span class="ev-meta"><span class="ev-time">${ds} ${ts}</span><button class="ev-del" data-id="${e.id}" title="Delete">&times;</button></span></div>`;
   }).join("") + '<button class="news-clear-btn" id="news-clear-btn">Clear All</button>';
 }
