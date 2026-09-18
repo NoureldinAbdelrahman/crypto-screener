@@ -25,6 +25,13 @@
     color: var(--text);
     font-size: 13px;
     -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(1200px 460px at 50% -12%, rgba(41,98,255,.16), transparent 62%),
+      radial-gradient(760px 320px at 96% 4%, rgba(38,166,154,.09), transparent 60%),
+      linear-gradient(rgba(255,255,255,.014) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.014) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    background-attachment: fixed;
   }
 
   /* ---------- Top bar ---------- */
@@ -32,12 +39,15 @@
     position: sticky; top: 32px; z-index: 40;
     display: flex; align-items: center; gap: 16px;
     height: 48px; padding: 0 16px;
-    background: var(--bg); border-bottom: 1px solid var(--border);
+    background: rgba(19,23,34,.82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
   }
-  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; color: #fff; white-space: nowrap; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; color: #fff; white-space: nowrap; text-shadow: 0 0 18px rgba(41,98,255,.35); }
   .logo {
     width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center;
     background: linear-gradient(135deg, #2962ff, #5b7cff); color: #fff; font-size: 13px; font-weight: 800;
+    box-shadow: 0 2px 10px rgba(41,98,255,.45), inset 0 1px 0 rgba(255,255,255,.25);
   }
   .status {
     display: inline-flex; align-items: center; gap: 6px;
@@ -46,7 +56,7 @@
   }
   .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .status.live { color: var(--up); border-color: rgba(38,166,154,.4); }
-  .status.live .dot { background: var(--up); animation: pulse 2s infinite; }
+  .status.live .dot { background: var(--up); box-shadow: 0 0 8px var(--up); animation: pulse 2s infinite; }
   .status.connecting { color: #f0b90b; border-color: rgba(240,185,11,.4); }
   .status.connecting .dot { background: #f0b90b; }
   .status.offline { color: var(--down); border-color: rgba(239,83,80,.4); }
@@ -61,7 +71,7 @@
     background: var(--panel); border: 1px solid var(--border);
     color: var(--text); font-size: 13px; outline: none;
   }
-  .search input:focus { border-color: var(--accent); }
+  .search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(41,98,255,.18); }
   .search input::placeholder { color: var(--muted); }
   .spacer { flex: 1; }
   .updated { font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -71,7 +81,8 @@
   .toolbar {
     position: sticky; top: 80px; z-index: 35;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    padding: 8px 16px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+    padding: 8px 16px; background: rgba(23,27,38,.88);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--border);
   }
   .tfgroup { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
   .tfbtn {
@@ -87,6 +98,7 @@
   .fbtn.active { background: #2a2e39; color: #fff; }
   .fbtn.gain.active { background: var(--up-bg); color: var(--up); }
   .fbtn.lose.active { background: var(--down-bg); color: var(--down); }
+  .fbtn.fave.active { background: rgba(240,185,11,.14); color: #f0b90b; box-shadow: inset 0 0 0 1px rgba(240,185,11,.35); }
 
   select {
     height: 30px; border-radius: 7px; background: var(--panel); border: 1px solid var(--border);
@@ -114,7 +126,7 @@
     font-variant-numeric: tabular-nums;
   }
   tbody td:first-child { text-align: left; }
-  tbody tr { cursor: default; }
+  tbody tr { cursor: default; transition: background .15s; }
   tbody tr:hover td { background: var(--panel); }
 
   .sym { display: flex; align-items: center; gap: 9px; }
@@ -124,6 +136,13 @@
   .src { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-left: 2px; flex: none; }
   .src.binance { background: var(--up); }
   .src.coingecko { background: #f0b90b; }
+  .star {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font-size: 15px; line-height: 1; color: var(--muted);
+    transition: color .15s, transform .15s; flex: none;
+  }
+  .star:hover { color: #f0b90b; transform: scale(1.2); }
+  .star.on { color: #f0b90b; text-shadow: 0 0 8px rgba(240,185,11,.5); }
 
   .num { color: var(--text); }
   .dim { color: var(--muted); }
@@ -134,6 +153,11 @@
   .chg.down.big { background: var(--down-bg); }
 
   .empty { text-align: center; color: var(--muted); padding: 48px 0; font-size: 14px; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #363a45; border-radius: 8px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: #424651; }
+  ::-webkit-scrollbar-track { background: transparent; }
 
   /* ---------- Status bar ---------- */
   .statusbar {
@@ -301,19 +325,44 @@
     <button class="tfbtn" data-tf="m30">30M</button>
     <button class="tfbtn" data-tf="h1">1H</button>
     <button class="tfbtn" data-tf="h4">4H</button>
+    <button class="tfbtn" data-tf="d3">3D</button>
+    <button class="tfbtn" data-tf="w1">1W</button>
     <button class="tfbtn active" data-tf="h24">24H</button>
   </div>
   <div class="filters" id="filters">
     <button class="fbtn active" data-filter="all">All</button>
     <button class="fbtn gain" data-filter="gainers">Gainers</button>
     <button class="fbtn lose" data-filter="losers">Losers</button>
+    <button class="fbtn fave" data-filter="faves">★ Faves</button>
   </div>
+  <select id="chgfilter">
+    <option value="0">Move: Any</option>
+    <option value="1">&gt; 1%</option>
+    <option value="3">&gt; 3%</option>
+    <option value="5">&gt; 5%</option>
+    <option value="10">&gt; 10%</option>
+    <option value="20">&gt; 20%</option>
+  </select>
+  <select id="pricefilter">
+    <option value="">Price: Any</option>
+    <option value="lt.01">&lt; $0.01</option>
+    <option value="lt.1">&lt; $0.10</option>
+    <option value="lt1">&lt; $1</option>
+    <option value="1_10">$1 – $10</option>
+    <option value="10_100">$10 – $100</option>
+    <option value="gt100">&gt; $100</option>
+  </select>
   <select id="volfilter">
     <option value="0">Volume: Any</option>
     <option value="1000000">&gt; $1M</option>
     <option value="10000000">&gt; $10M</option>
     <option value="100000000">&gt; $100M</option>
     <option value="1000000000">&gt; $1B</option>
+  </select>
+  <select id="srcfilter">
+    <option value="">Source: All</option>
+    <option value="binance">Binance</option>
+    <option value="coingecko">CoinGecko</option>
   </select>
 </div>
 
@@ -335,8 +384,9 @@
 
 <div class="statusbar">
   <span>Showing <b id="count">0</b> of <b id="total">0</b> Drift Fund coins</span>
-  <span class="legend"><span class="src binance"></span> Binance live</span>
-  <span class="legend"><span class="src coingecko"></span> CoinGecko (1h/24h only)</span>
+  <span class="legend"><span class="src binance"></span> Binance <span style="color:var(--muted)">(all windows)</span></span>
+  <span class="legend"><span class="src coingecko"></span> CoinGecko <span style="color:var(--muted)">(1h/24h)</span></span>
+  <span class="legend"><span class="star on" style="pointer-events:none">★</span> Favorites saved on this browser</span>
 </div>
 
 <div class="news-modal-overlay" id="news-modal-overlay">
@@ -370,8 +420,9 @@ for (const [df, id] of Object.entries(DF_TO_CG)) if (!(id in ID_TO_DF)) ID_TO_DF
 
 const ALL = [...Object.keys(BINANCE), ...Object.keys(CG_ONLY)];
 
-const TIMEFRAMES = [["m1","1M"],["m5","5M"],["m15","15M"],["m30","30M"],["h1","1H"],["h4","4H"],["h24","24H"]];
-const WINDOWS = { m1:"1m", m5:"5m", m15:"15m", m30:"30m", h1:"1h", h4:"4h" };
+const TIMEFRAMES = [["m1","1M"],["m5","5M"],["m15","15M"],["m30","30M"],["h1","1H"],["h4","4H"],["d3","3D"],["w1","1W"],["h24","24H"]];
+const FAST_WINDOWS = { m1:"1m", m5:"5m", m15:"15m", m30:"30m", h1:"1h", h4:"4h" };
+const SLOW_WINDOWS = { d3:"3d", w1:"1w" };
 
 // ===================== State =====================
 const state = {};
@@ -382,7 +433,12 @@ const anchors = {};   // df -> { m1,m5,m15,m30,h1,h4 }
 let activeTF = "h24";
 let sortCol = "chg", sortAsc = false;
 let filterMode = "all";
-let minVol = 0;
+let minVol = 0, minChg = 0, priceRange = "", srcFilter = "";
+const FAVS_KEY = "drift_faves";
+let faves = new Set();
+try { const a = JSON.parse(localStorage.getItem(FAVS_KEY) || "[]"); if (Array.isArray(a)) faves = new Set(a); } catch(e) {}
+function saveFaves() { localStorage.setItem(FAVS_KEY, JSON.stringify([...faves])); }
+function toggleFave(df) { if (!faves.delete(df)) faves.add(df); saveFaves(); render(); }
 let ready = false, lastUpdate = 0;
 
 const $ = id => document.getElementById(id);
@@ -445,6 +501,19 @@ function render() {
     if (minVol && !(r.vol >= minVol)) return false;
     if (filterMode === "gainers" && !(r.chg > 0)) return false;
     if (filterMode === "losers" && !(r.chg < 0)) return false;
+    if (filterMode === "faves" && !faves.has(r.symbol)) return false;
+    if (minChg && !(r.chg != null && Math.abs(r.chg) >= minChg)) return false;
+    if (srcFilter && r.src !== srcFilter) return false;
+    if (priceRange) {
+      const p = r.price;
+      const ok = priceRange === "lt.01" ? p != null && p < 0.01
+        : priceRange === "lt.1" ? p != null && p < 0.1
+        : priceRange === "lt1" ? p != null && p < 1
+        : priceRange === "1_10" ? p != null && p >= 1 && p < 10
+        : priceRange === "10_100" ? p != null && p >= 10 && p < 100
+        : p != null && p >= 100;
+      if (!ok) return false;
+    }
     return true;
   });
 
@@ -471,8 +540,10 @@ function render() {
 
   tbody.innerHTML = list.map(r => {
     const ico = r.image ? `<img class="ico" src="${r.image}" loading="lazy" alt="">` : `<span class="ico"></span>`;
+    const fav = faves.has(r.symbol);
+    const star = `<button class="star${fav ? " on" : ""}" data-df="${r.symbol}" title="${fav ? "Remove from favorites" : "Add to favorites"}">${fav ? "★" : "☆"}</button>`;
     return `<tr>
-      <td><div class="sym">${ico}<span class="s">${r.symbol}</span><span class="src ${r.src}" title="${r.src === 'binance' ? 'Binance live' : 'CoinGecko'}"></span><span class="n">${r.name || ""}</span></div></td>
+      <td><div class="sym">${star}${ico}<span class="s">${r.symbol}</span><span class="src ${r.src}" title="${r.src === 'binance' ? 'Binance live' : 'CoinGecko'}"></span><span class="n">${r.name || ""}</span></div></td>
       <td class="num">${fmtUSD(r.price)}</td>
       <td class="num">${fmtPct(r.chg)}</td>
       <td class="num">${fmtUSD(r.vol)}</td>
@@ -498,9 +569,9 @@ async function seed24h() {
     } catch (e) {}
   }
 }
-async function seedWindows() {
+async function seedWindows(winMap) {
   const pairs = Object.values(BINANCE);
-  for (const [key, win] of Object.entries(WINDOWS)) {
+  for (const [key, win] of Object.entries(winMap)) {
     for (let i = 0; i < pairs.length; i += 100) {
       try {
         const r = await fetch(`https://api.binance.com/api/v3/ticker?symbols=${encodeURIComponent(JSON.stringify(pairs.slice(i, i+100)))}&windowSize=${win}`);
@@ -595,6 +666,14 @@ $("filters").addEventListener("click", e => {
 });
 
 $("volfilter").addEventListener("change", e => { minVol = +e.target.value; render(); });
+$("chgfilter").addEventListener("change", e => { minChg = +e.target.value; render(); });
+$("pricefilter").addEventListener("change", e => { priceRange = e.target.value; render(); });
+$("srcfilter").addEventListener("change", e => { srcFilter = e.target.value; render(); });
+
+tbody.addEventListener("click", e => {
+  const st = e.target.closest(".star");
+  if (st) toggleFave(st.dataset.df);
+});
 
 document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => {
   const col = th.dataset.col;
@@ -807,7 +886,8 @@ async function init() {
   setStatus("connecting", "LOADING");
   const tasks = [
     seed24h().then(() => { if (ready) scheduleRender(); }),
-    seedWindows().then(() => { if (ready) scheduleRender(); }),
+    seedWindows(FAST_WINDOWS).then(() => { if (ready) scheduleRender(); }),
+    seedWindows(SLOW_WINDOWS).then(() => { if (ready) scheduleRender(); }),
     seedCGOnly().then(() => { if (ready) scheduleRender(); }),
     seedCGAll().then(() => { if (ready) scheduleRender(); })
   ];
@@ -818,7 +898,8 @@ async function init() {
   connectWS();
   render();
 
-  setInterval(() => { seedWindows().then(scheduleRender); }, 45000);
+  setInterval(() => { seedWindows(FAST_WINDOWS).then(scheduleRender); }, 45000);
+  setInterval(() => { seedWindows(SLOW_WINDOWS).then(scheduleRender); }, 300000);
   setInterval(() => { seed24h().then(scheduleRender); }, 60000);
   setInterval(() => { seedCGOnly().then(scheduleRender); }, 90000);
   setInterval(() => { seedCGAll().then(scheduleRender); }, 300000);
