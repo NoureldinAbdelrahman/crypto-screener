@@ -352,6 +352,14 @@
     <option value="10_100">$10 – $100</option>
     <option value="gt100">&gt; $100</option>
   </select>
+  <select id="mcapfilter">
+    <option value="">Mkt Cap: Any</option>
+    <option value="lt10m">&lt; $10M</option>
+    <option value="10m_100m">$10M – $100M</option>
+    <option value="100m_1b">$100M – $1B</option>
+    <option value="1b_10b">$1B – $10B</option>
+    <option value="gt10b">&gt; $10B</option>
+  </select>
   <select id="volfilter">
     <option value="0">Volume: Any</option>
     <option value="1000000">&gt; $1M</option>
@@ -433,7 +441,7 @@ const anchors = {};   // df -> { m1,m5,m15,m30,h1,h4 }
 let activeTF = "h24";
 let sortCol = "chg", sortAsc = false;
 let filterMode = "all";
-let minVol = 0, minChg = 0, priceRange = "", srcFilter = "";
+let minVol = 0, minChg = 0, priceRange = "", mcapRange = "", srcFilter = "";
 const FAVS_KEY = "drift_faves";
 let faves = new Set();
 try { const a = JSON.parse(localStorage.getItem(FAVS_KEY) || "[]"); if (Array.isArray(a)) faves = new Set(a); } catch(e) {}
@@ -498,6 +506,15 @@ function render() {
 
   let list = rows.filter(r => {
     if (q && !r.symbol.toLowerCase().includes(q) && !(r.name || "").toLowerCase().includes(q)) return false;
+    if (mcapRange) {
+      const m = r.mcap;
+      const ok = mcapRange === "lt10m" ? m != null && m < 1e7
+        : mcapRange === "10m_100m" ? m != null && m >= 1e7 && m < 1e8
+        : mcapRange === "100m_1b" ? m != null && m >= 1e8 && m < 1e9
+        : mcapRange === "1b_10b" ? m != null && m >= 1e9 && m < 1e10
+        : m != null && m >= 1e10;
+      if (!ok) return false;
+    }
     if (minVol && !(r.vol >= minVol)) return false;
     if (filterMode === "gainers" && !(r.chg > 0)) return false;
     if (filterMode === "losers" && !(r.chg < 0)) return false;
@@ -670,6 +687,7 @@ $("filters").addEventListener("click", e => {
 });
 
 $("volfilter").addEventListener("change", e => { minVol = +e.target.value; render(); });
+$("mcapfilter").addEventListener("change", e => { mcapRange = e.target.value; render(); });
 $("chgfilter").addEventListener("change", e => { minChg = +e.target.value; render(); });
 $("pricefilter").addEventListener("change", e => { priceRange = e.target.value; render(); });
 $("srcfilter").addEventListener("change", e => { srcFilter = e.target.value; render(); });
