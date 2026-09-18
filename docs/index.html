@@ -422,7 +422,7 @@ const ALL = [...Object.keys(BINANCE), ...Object.keys(CG_ONLY)];
 
 const TIMEFRAMES = [["m1","1M"],["m5","5M"],["m15","15M"],["m30","30M"],["h1","1H"],["h4","4H"],["h24","24H"],["d3","3D"],["w1","1W"]];
 const FAST_WINDOWS = { m1:"1m", m5:"5m", m15:"15m", m30:"30m", h1:"1h", h4:"4h" };
-const SLOW_WINDOWS = { d3:"3d", w1:"1w" };
+const SLOW_WINDOWS = { d3:"3d", w1:"7d" };  // Binance rejects "1w"; 7d is the rolling week
 
 // ===================== State =====================
 const state = {};
@@ -558,7 +558,7 @@ function markUpdated() { lastUpdate = Date.now(); }
 // ===================== REST: Binance =====================
 async function seed24h() {
   const pairs = Object.values(BINANCE);
-  for (let i = 0; i < pairs.length; i += 150) {
+  for (let i = 0; i < pairs.length; i += 100) {
     try {
       const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(pairs.slice(i, i+150)))}`);
       if (!r.ok) continue;
@@ -573,14 +573,18 @@ async function seedWindows(winMap) {
   const pairs = Object.values(BINANCE);
   for (const [key, win] of Object.entries(winMap)) {
     for (let i = 0; i < pairs.length; i += 100) {
-      try {
-        const r = await fetch(`https://api.binance.com/api/v3/ticker?symbols=${encodeURIComponent(JSON.stringify(pairs.slice(i, i+100)))}&windowSize=${win}`);
-        if (!r.ok) continue;
-        for (const t of await r.json()) {
-          const df = PAIR_TO_DF[t.symbol]; if (!df) continue;
-          (anchors[df] = anchors[df] || {})[key] = parseFloat(t.openPrice);
-        }
-      } catch (e) {}
+      let done = false;
+      for (let attempt = 0; attempt < 2 && !done; attempt++) {
+        try {
+          const r = await fetch(`https://api.binance.com/api/v3/ticker?symbols=${encodeURIComponent(JSON.stringify(pairs.slice(i, i+100)))}&windowSize=${win}`);
+          if (!r.ok) { await new Promise(x => setTimeout(x, 600)); continue; }
+          for (const t of await r.json()) {
+            const df = PAIR_TO_DF[t.symbol]; if (!df) continue;
+            (anchors[df] = anchors[df] || {})[key] = parseFloat(t.openPrice);
+          }
+          done = true;
+        } catch (e) { await new Promise(x => setTimeout(x, 600)); }
+      }
       await new Promise(r => setTimeout(r, 120));
     }
   }
@@ -885,9 +889,7 @@ $("news-reset-btn").addEventListener("click", () => {
 async function init() {
   setStatus("connecting", "LOADING");
   const tasks = [
-    seed24h().then(() => { if (ready) scheduleRender(); }),
-    seedWindows(FAST_WINDOWS).then(() => { if (ready) scheduleRender(); }),
-    seedWindows(SLOW_WINDOWS).then(() => { if (ready) scheduleRender(); }),
+    seed24h().then(() => seedWindows(FAST_WINDOWS)).then(() => seedWindows(SLOW_WINDOWS)).then(() => { if (ready) scheduleRender(); }),
     seedCGOnly().then(() => { if (ready) scheduleRender(); }),
     seedCGAll().then(() => { if (ready) scheduleRender(); })
   ];
