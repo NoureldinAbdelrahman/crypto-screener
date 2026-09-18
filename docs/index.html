@@ -325,9 +325,9 @@
     <button class="tfbtn" data-tf="m30">30M</button>
     <button class="tfbtn" data-tf="h1">1H</button>
     <button class="tfbtn" data-tf="h4">4H</button>
+    <button class="tfbtn active" data-tf="h24">24H</button>
     <button class="tfbtn" data-tf="d3">3D</button>
     <button class="tfbtn" data-tf="w1">1W</button>
-    <button class="tfbtn active" data-tf="h24">24H</button>
   </div>
   <div class="filters" id="filters">
     <button class="fbtn active" data-filter="all">All</button>
@@ -420,7 +420,7 @@ for (const [df, id] of Object.entries(DF_TO_CG)) if (!(id in ID_TO_DF)) ID_TO_DF
 
 const ALL = [...Object.keys(BINANCE), ...Object.keys(CG_ONLY)];
 
-const TIMEFRAMES = [["m1","1M"],["m5","5M"],["m15","15M"],["m30","30M"],["h1","1H"],["h4","4H"],["d3","3D"],["w1","1W"],["h24","24H"]];
+const TIMEFRAMES = [["m1","1M"],["m5","5M"],["m15","15M"],["m30","30M"],["h1","1H"],["h4","4H"],["h24","24H"],["d3","3D"],["w1","1W"]];
 const FAST_WINDOWS = { m1:"1m", m5:"5m", m15:"15m", m30:"30m", h1:"1h", h4:"4h" };
 const SLOW_WINDOWS = { d3:"3d", w1:"1w" };
 
