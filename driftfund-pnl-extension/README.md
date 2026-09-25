@@ -6,12 +6,14 @@ network requests the Drift Fund app itself makes with your session.
 
 ## How it works
 
-- `hook.js` is injected into the page's own JS context (Firefox `web_accessible_resources`).
-  It hooks `window.fetch`, `XMLHttpRequest`, and Supabase Realtime WebSocket frames, and relays
-  payloads that look like trades / positions / account balances to the add-on.
+- `background.js` uses the Firefox `webRequest` API to read the responses of the app's own `/api/*`
+  and Supabase REST requests (the ones your logged-in session already makes), and forwards the ones
+  that look like trades / positions / balances to the page.
 - `injector.js` (content script) classifies those payloads into **closed trades** (each with a timestamp
   and PNL) and **open positions** (unrealized PNL), persists them to `browser.storage.local`, and renders
   the widget.
+- No credentials are stored, nothing is injected into the page's JS — the add-on watches the traffic the
+  page itself produces.
 - The widget shows today's realized PNL, current unrealized PNL, equity/balance, and a **calendar** where
   every day is colored green/red by its realized PNL. Click a day to see that day's trades.
 
@@ -29,8 +31,9 @@ network requests the Drift Fund app itself makes with your session.
 
 - PNL history only builds while you use the page; the calendar fills up day by day and persists across
   sessions in Firefox storage.
-- If the widget says "no captures yet", open the **Debug · raw capture** section in the widget — it lists
-  the API endpoints the page called. Paste those samples back to me and I'll tighten the field detection
-  for your account.
+- If the widget dot stays grey / says "no captures yet", open the **Debug · raw capture** section in the
+  widget — it lists the API endpoints the page called. Paste those samples back to me and I'll tighten the
+  field detection for your account. (After updating the add-on, re-load it here and reload the page; some
+  fetches like websockets still need the old hook path.)
 - The add-on never reads or stores passwords; it only watches this page's own traffic and keeps the
   numbers on your machine.

@@ -192,6 +192,8 @@
     .title { font-weight: 700; color: #fff; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; }
     .title .logo { width: 20px; height: 20px; border-radius: 5px; background: linear-gradient(135deg,#2962ff,#5b7cff);
       display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 800; }
+    .fdot { width: 7px; height: 7px; border-radius: 50%; background: #4a5568; flex: none; transition: background .3s; }
+    .fdot.on { background: #26a69a; box-shadow: 0 0 6px #26a69a; }
     .eq { margin-left: auto; color: #9aa4b5; font-size: 11px; font-weight: 600; }
     #fold { background: none; border: none; color: #9aa4b5; font-size: 14px; cursor: pointer; padding: 0 2px; }
     #fold:hover { color: #fff; }
@@ -251,7 +253,7 @@
     sh.innerHTML = `<style>${CSS}</style>`;
     const card = el("div", "card");
     card.innerHTML = `
-      <div class="head"><span class="title"><span class="logo">D</span> PNL</span>
+      <div class="head"><span id="dfx-src" class="fdot" title="waiting for data…"></span><span class="title"><span class="logo">D</span> PNL</span>
         <span class="eq" id="eq">EQ —</span><button id="fold" title="Minimize">▾</button></div>
       <div class="body"><div class="today">
           <div class="big"><span class="v" id="vR">—</span><span class="l">Realized today</span></div>
@@ -386,6 +388,19 @@
     if (e.source !== window || !e.data || !e.data.__dfx) return;
     handlePayload(e.data);
   });
+
+  /* ---------- messages from the background webRequest capture ---------- */
+  try {
+    browser.runtime.onMessage.addListener((msg, sender) => {
+      if (msg && msg.__dfx) { srcOn(); handlePayload(msg); }
+    });
+  } catch (e) {}
+
+  function srcOn() {
+    const el = document.getElementById("dfx-src");
+    if (el) { el.classList.add("on"); el.title = "live data feed OK"; }
+  }
+  setInterval(() => { if (state.trades.length || state.positions.length || state.raw.length) srcOn(); }, 2000);
 
   /* periodic local tick (open positions may keep reporting in later payloads) */
   setInterval(() => { if (state.trades.length || state.positions.length) renderThrottled(); }, 5000);

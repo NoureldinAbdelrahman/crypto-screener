@@ -1,10 +1,14 @@
 {
   "manifest_version": 2,
   "name": "Drift Fund PNL Dashboard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Daily PNL indicator (realized + unrealized) and a per-day PNL calendar for Drift Fund, built from the page's own network data while you trade.",
   "browser_specific_settings": {
     "gecko": { "id": "driftfund-pnl-dashboard@local", "strict_min_version": "115.0" }
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
   },
   "content_scripts": [
     {
@@ -15,5 +19,12 @@
     }
   ],
   "web_accessible_resources": ["hook.js"],
-  "permissions": ["storage"]
+  "permissions": [
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "*://driftfund.io/api/*",
+    "*://*.driftfund.io/api/*",
+    "https://mvalpvdwqrtxfzpbzjgt.supabase.co/rest/v1/*"
+  ]
 }
