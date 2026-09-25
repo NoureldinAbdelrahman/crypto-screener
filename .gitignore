@@ -3,3 +3,7 @@ bot/
 
 # Secrets
 .env
+
+# Personal Drift Fund page download (contains the user's accountId)
+/Drift Fund — Our Capital. Your Decisions.html
+/Drift Fund — Our Capital. Your Decisions_files/
